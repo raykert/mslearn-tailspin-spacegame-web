@@ -1,3 +1,61 @@
-pool: MyAgentPool
+trigger:
+- '*'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  buildConfiguration: 'Release'
+
 steps:
-- bash: echo hello world
+  - task: UseDotNet@2
+    inputs:
+      packageType: 'sdk'
+      version: '6.x'
+    # Use .NET SDK
+
+  - task: Npm@1
+    displayName: 'Run npm install'  # Correct placement of displayName
+    inputs:
+      verbose: false
+    # Run npm install
+
+  - script: './node_modules/.bin/node-sass Tailspin.SpaceGame.Web/wwwroot/ --output Tailspin.SpaceGame.Web/wwwroot/'
+    displayName: 'Compile node-sass'
+    # Compile node-sass
+
+  - task: gulp@1
+    displayName: 'Run gulp tasks'
+    # Run gulp tasks
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Restore project dependencies'
+    inputs:
+      command: 'restore'
+      projects: '**/*.csproj'
+    # Restore project dependencies
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Build the project'
+    inputs:
+      command: 'build'
+      projects: '**/*.csproj'
+      arguments: '--no-restore --configuration Release'
+    # Build the project
+
+  - script: 'echo $"(Build.SourcesDirectory), $(Build.BuildId), $(Build.BuildNumber)" > buildinfo.txt'
+    displayName: 'Write build information to file'
+    workingDirectory: Tailspin.SpaceGame.Web/wwwroot/
+    # Write build information to file
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Publish the project - Release'
+    inputs:
+      command: 'publish'
+      projects: '**/*.csproj'
+      publishWebProjects: false
+      arguments: '--no-build --configuration Release --output $(Build.ArtifactStagingDirectory)/Release'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish Artifact: drop'
+    condition: succeeded()
